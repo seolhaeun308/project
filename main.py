@@ -27,7 +27,7 @@ def plot_thermal_heatmap():
 def main():
     # 1. 웹 화면 제목과 설명 (st.title, st.write 사용)
     st.title("🔥 3D 적층 반도체 열 확산 시뮬레이터")
-    st.write("**작성자:** [본인 이름/학번 입력]")
+    st.write("**작성자:** [설하은/21112]")
     st.write("차세대 반도체의 열 병목 현상(Thermal Bottleneck)을 분석하기 위해, 2차원 열 확산 방정식을 유한차분법(FDM)으로 시뮬레이션하는 프로그램입니다.")
     
     st.divider() # 가로 줄 긋기
