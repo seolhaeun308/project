@@ -1,15 +1,49 @@
 """
-프로젝트명: 3D 적층 반도체 열 확산 시뮬레이터 (Phase 1: 지속 발열 및 TSV 도입)
+프로젝트명: 3D 적층 반도체 열 확산 시뮬레이터 (디자인 고도화)
 작성자: [본인 이름/학번]
-설명: 열원이 지속적으로 열을 방출하는 물리 모델 적용 및 TSV 방열 기둥 효과 구현
+설명: 반도체 스타트업 테마의 동적 UI 및 CSS 배경 애니메이션 적용
 """
 
 import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
 
+# ==========================================
+# ✨ 신규 기능: 스타트업/과학 테마 커스텀 디자인 (CSS)
+# ==========================================
+def apply_custom_css():
+    st.markdown("""
+    <style>
+    /* 메인 배경: 우주/양자물리 느낌의 다크 네온 그라데이션 및 움직이는 애니메이션 */
+    [data-testid="stAppViewContainer"] {
+        background: linear-gradient(-45deg, #0B0C10, #1F2833, #0a192f, #172a45);
+        background-size: 400% 400%;
+        animation: gradientBG 15s ease infinite;
+    }
+    
+    /* 사이드바 배경: 반투명하고 세련된 다크 테마 */
+    [data-testid="stSidebar"] {
+        background-color: rgba(10, 25, 47, 0.95) !important;
+    }
+    
+    /* 화면 내 모든 글씨 색상을 밝게(가독성 향상) */
+    h1, h2, h3, p, span, div, label {
+        color: #E6F1FF !important; 
+    }
+    
+    /* 배경이 움직이는 애니메이션 키프레임 설정 */
+    @keyframes gradientBG {
+        0% {background-position: 0% 50%;}
+        50% {background-position: 100% 50%;}
+        100% {background-position: 0% 50%;}
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+# ==========================================
+# 기존 물리 엔진 및 기능 함수들 (변경 없음)
+# ==========================================
 def set_chip_layout(size, hotspots, hotspot_temp):
-    """기능 1: 반도체 칩 초기 격자 및 복수 핫스팟 생성"""
     grid = np.ones((size, size)) * 25.0
     for (x, y) in hotspots:
         if 0 <= x < size and 0 <= y < size:
@@ -17,7 +51,6 @@ def set_chip_layout(size, hotspots, hotspot_temp):
     return grid
 
 def create_alpha_map(size, tsv_coords, base_alpha, tsv_alpha):
-    """기능 4: 이종 소재(Si + Cu TSV) 열전도율 2D 행렬 생성"""
     alpha_map = np.ones((size, size)) * base_alpha
     for (x, y) in tsv_coords:
         if 0 <= x < size and 0 <= y < size:
@@ -25,7 +58,6 @@ def create_alpha_map(size, tsv_coords, base_alpha, tsv_alpha):
     return alpha_map
 
 def calculate_heat_diffuse(grid, alpha_map, time_steps, hotspots, hotspot_temp):
-    """기능 2: 행렬 기반 FDM 열 확산 수치해석 (지속 발열 모델 적용)"""
     if np.max(alpha_map) > 0.25:
         st.error("🚨 수치해석 오류: 열전도율이 0.25를 초과하여 시뮬레이션이 발산합니다.")
         return grid
@@ -44,7 +76,6 @@ def calculate_heat_diffuse(grid, alpha_map, time_steps, hotspots, hotspot_temp):
             new_grid[1:-1, 1:-1] = center + inner_alpha * (up + down + left + right - 4 * center)
             grid = new_grid.copy()
             
-            # [핵심 수정] 트랜지스터(핫스팟)가 지속적으로 열을 내도록 온도 고정 (Dirichlet 경계 조건)
             for (x, y) in hotspots:
                 if 0 <= x < grid.shape[1] and 0 <= y < grid.shape[0]:
                     grid[y, x] = hotspot_temp
@@ -55,15 +86,23 @@ def calculate_heat_diffuse(grid, alpha_map, time_steps, hotspots, hotspot_temp):
         return grid
 
 def plot_thermal_heatmap(grid, title_text):
-    """기능 3: Matplotlib 온도 히트맵 시각화"""
+    # 그래프 배경을 어둡게 설정하여 메인 테마와 어울리게 조화
+    plt.style.use('dark_background')
     fig, ax = plt.subplots(figsize=(5, 4))
-    c = ax.imshow(grid, cmap='hot', interpolation='nearest', vmin=25, vmax=100)
+    c = ax.imshow(grid, cmap='inferno', interpolation='nearest', vmin=25, vmax=100)
     fig.colorbar(c, ax=ax, label="Temp (°C)")
     ax.set_title(title_text)
     return fig
 
+# ==========================================
+# 메인 화면 구성
+# ==========================================
 def main():
     st.set_page_config(page_title="열 확산 시뮬레이터", layout="wide")
+    
+    # 여기서 앞서 만든 CSS 디자인 함수를 실행합니다!
+    apply_custom_css()
+    
     st.title("🔥 3D 적층 반도체 열 확산 시뮬레이터")
     
     menu = st.sidebar.radio("화면 이동 탭", [
@@ -82,29 +121,25 @@ def main():
     center = grid_size // 2
     basic_alpha_map = np.ones((grid_size, grid_size)) * base_alpha
 
-    # === 화면 1 ===
     if menu == "1. 단일 핫스팟 시뮬레이션":
         st.subheader("화면 1: 중앙 집중형 발열 테스트")
         hotspots = [(center, center)]
         initial_grid = set_chip_layout(grid_size, hotspots, hotspot_temp)
         if st.button("▶️ 시뮬레이션 시작"):
-            with st.spinner('계산 중...'):
+            with st.spinner('양자역학적(?) 계산 중...'):
                 final_grid = calculate_heat_diffuse(initial_grid, basic_alpha_map, time_steps, hotspots, hotspot_temp)
                 st.pyplot(plot_thermal_heatmap(final_grid, "Single Continuous Hotspot"))
 
-    # === 화면 2 ===
     elif menu == "2. 집중 vs 분산 배치 비교":
         st.subheader("화면 2: 발열 제어를 위한 구조 최적화 실험")
         if st.button("⚖️ 분산 배치 방열 효과 비교하기"):
             with st.spinner('두 가지 모델 동시 수치해석 중...'):
                 offset = grid_size // 4
                 
-                # 모델 A: 중앙 1개
                 hotspots_A = [(center, center)]
                 grid_A_init = set_chip_layout(grid_size, hotspots_A, hotspot_temp)
                 grid_A_final = calculate_heat_diffuse(grid_A_init, basic_alpha_map, time_steps, hotspots_A, hotspot_temp)
                 
-                # 모델 B: 분산 4개
                 hotspots_B = [(center - offset, center - offset), (center - offset, center + offset),
                               (center + offset, center - offset), (center + offset, center + offset)]
                 grid_B_init = set_chip_layout(grid_size, hotspots_B, hotspot_temp)
@@ -118,7 +153,6 @@ def main():
                     st.pyplot(plot_thermal_heatmap(grid_B_final, "Distributed Hotspots"))
                     st.metric(label="분산형 최고 온도", value=f"{np.max(grid_B_final):.2f} °C", delta=f"{np.max(grid_B_final) - np.max(grid_A_final):.2f} °C", delta_color="inverse")
 
-    # === 화면 3 ===
     elif menu == "3. TSV(방열 기둥) 적용 최적화":
         st.subheader("화면 3: 이종 소재(TSV) 방열 통로 개척 시뮬레이션")
         tsv_alpha = st.sidebar.slider("TSV 열전도율 (Copper)", 0.15, 0.25, 0.24, step=0.01)
@@ -128,11 +162,9 @@ def main():
                 offset = 2
                 hotspots = [(center, center)]
                 
-                # 모델 A: 일반 실리콘
                 grid_A_init = set_chip_layout(grid_size, hotspots, hotspot_temp)
                 grid_A_final = calculate_heat_diffuse(grid_A_init, basic_alpha_map, time_steps, hotspots, hotspot_temp)
                 
-                # 모델 B: TSV 기둥 배치
                 tsv_coords = [(center - offset, center), (center + offset, center),
                               (center, center - offset), (center, center + offset)]
                 tsv_alpha_map = create_alpha_map(grid_size, tsv_coords, base_alpha, tsv_alpha)
