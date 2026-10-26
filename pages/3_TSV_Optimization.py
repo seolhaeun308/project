@@ -16,20 +16,29 @@ def apply_space_theme():
     """, unsafe_allow_html=True)
 
 st.set_page_config(page_title="3. TSV 최적화", layout="wide")
-apply_space_theme() # 🌌 웅장한 우주 배경 실행!
+apply_space_theme()
 
 st.title("3️⃣ 이종 소재(TSV 방열 기둥) 적용 시뮬레이션")
 
+# [핵심 로직] 이종 소재 열전도율(Heterogeneous Thermal Conductivity) 반영 열 확산 함수
 def calculate_heat_diffuse(grid, alpha_map, time_steps, hotspots, hotspot_temp):
     new_grid = grid.copy()
+    
+    # 칩 전체가 동일한 열전도율을 가지는 것이 아니라, 
+    # 위치별(Si vs Cu)로 다른 열전도율을 가진 2D 배열(alpha_map)을 수식에 곱함
     inner_alpha = alpha_map[1:-1, 1:-1]
+    
     for step in range(time_steps):
+        # FDM 연산 시 단일 스칼라 값이 아닌 이종 행렬(inner_alpha)을 곱하여 열 배출 속도 차이를 모사함
         new_grid[1:-1, 1:-1] = grid[1:-1, 1:-1] + inner_alpha * (grid[:-2, 1:-1] + grid[2:, 1:-1] + grid[1:-1, :-2] + grid[1:-1, 2:] - 4 * grid[1:-1, 1:-1])
         grid = new_grid.copy()
+        
+        # 지속 발열 조건 유지
         for (x, y) in hotspots:
             grid[y, x] = hotspot_temp
     return grid
 
+# [시각화 로직] 3D Surface 렌더링 함수
 def plot_3d_surface(grid, title_text):
     fig = go.Figure(data=[go.Surface(z=grid, colorscale='Inferno')])
     fig.update_layout(title=title_text, scene=dict(zaxis=dict(range=[25, 120])), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
@@ -43,12 +52,15 @@ if st.button("⚖️ 일반 실리콘 vs TSV 칩 비교"):
     hotspots = [(center, center)]
     init_grid = np.ones((grid_size, grid_size)) * 25.0
     
+    # 모델 A (대조군): 단일 실리콘 칩 (모든 영역 열전도율 0.10)
     alpha_map_A = np.ones((grid_size, grid_size)) * 0.10
     grid_A = calculate_heat_diffuse(init_grid.copy(), alpha_map_A, 200, hotspots, 100)
     
+    # 모델 B (실험군): 중앙 핫스팟 주변 4곳에 고열전도 구리 기둥(TSV) 식각 모델링
     alpha_map_B = np.ones((grid_size, grid_size)) * 0.10
     for x, y in [(center-offset, center), (center+offset, center), (center, center-offset), (center, center+offset)]:
-        alpha_map_B[y, x] = tsv_alpha
+        alpha_map_B[y, x] = tsv_alpha # TSV 좌표에만 구리의 열전도율 덮어쓰기
+        
     grid_B = calculate_heat_diffuse(init_grid.copy(), alpha_map_B, 200, hotspots, 100)
 
     col1, col2 = st.columns(2)
