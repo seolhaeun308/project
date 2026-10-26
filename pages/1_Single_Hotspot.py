@@ -2,9 +2,9 @@
 import streamlit as st
 import numpy as np
 import plotly.graph_objects as go
+import time
 
 def apply_space_theme():
-    # 웅장한 우주 배경 및 Glassmorphism UI 적용을 위한 CSS 주입 함수
     st.markdown("""
     <style>
     [data-testid="stAppViewContainer"] { background: radial-gradient(circle at 15% 25%, rgba(60, 20, 80, 0.6) 0%, transparent 40%), radial-gradient(circle at 75% 65%, rgba(20, 50, 100, 0.6) 0%, transparent 40%), linear-gradient(-45deg, #01010a, #0a0520, #010205); background-size: 200% 200%; animation: cosmicMove 15s ease infinite; }
@@ -16,59 +16,62 @@ def apply_space_theme():
     </style>
     """, unsafe_allow_html=True)
 
-st.set_page_config(page_title="1. 단일 핫스팟 3D", layout="wide")
+st.set_page_config(page_title="1. 단일 핫스팟 3D 애니메이션", layout="wide")
 apply_space_theme()
 
-st.title("1️⃣ 단일 핫스팟 3D 열 확산 시뮬레이션")
+st.title("1️⃣ 단일 핫스팟 3D 열 확산 애니메이션")
+st.write("유한차분법(FDM) 연산 과정이 시간 흐름에 따라 3D 표면상에서 어떻게 확산되는지 실시간 플레이어로 관찰합니다.")
 
-# [핵심 로직] 유한차분법(FDM) 기반 열 확산 시뮬레이션 물리 엔진
-def calculate_heat_diffuse(grid, alpha, time_steps, hotspots, hotspot_temp):
-    try:
-        # 배열 복사 (원본 초기 상태 보존 및 업데이트용 배열 생성)
-        new_grid = grid.copy()
+# [최적화] @st.cache_data를 이용한 물리 연산 결과 캐싱
+@st.cache_data
+def run_full_simulation(grid_size, alpha, total_steps, hotspot_temp):
+    grid = np.ones((grid_size, grid_size)) * 25.0
+    center = grid_size // 2
+    hotspots = [(center, center)]
+    
+    history = []
+    current_grid = grid.copy()
+    
+    for step in range(total_steps):
+        new_grid = current_grid.copy()
+        up = current_grid[:-2, 1:-1]; down = current_grid[2:, 1:-1]
+        left = current_grid[1:-1, :-2]; right = current_grid[1:-1, 2:]
+        center_region = current_grid[1:-1, 1:-1]
         
-        # 지정된 시간 흐름(time_steps)만큼 열 방정식 연산 반복 수행
-        for step in range(time_steps):
-            # 행렬 슬라이싱을 이용해 상, 하, 좌, 우 이웃 노드의 온도 데이터 추출
-            up = grid[:-2, 1:-1]; down = grid[2:, 1:-1]
-            left = grid[1:-1, :-2]; right = grid[1:-1, 2:]
-            center = grid[1:-1, 1:-1]
+        new_grid[1:-1, 1:-1] = center_region + alpha * (up + down + left + right - 4 * center_region)
+        current_grid = new_grid.copy()
+        
+        for (x, y) in hotspots:
+            current_grid[y, x] = hotspot_temp
             
-            # 유한차분법(FDM) 수식을 적용하여 현재 노드의 다음 스텝 온도 계산
-            new_grid[1:-1, 1:-1] = center + alpha * (up + down + left + right - 4 * center)
-            grid = new_grid.copy() # 상태 업데이트
-            
-            # 디리클레 경계 조건(Dirichlet Boundary Condition) 적용: 
-            # 트랜지스터가 켜져있는 동안 핫스팟 좌표는 항상 초기 발열 온도를 지속적으로 유지함
-            for (x, y) in hotspots:
-                grid[y, x] = hotspot_temp
-                
-        return grid
-    # 수치해석 과정 중 발산(오버플로우) 등 에러 발생 시 예외 처리
-    except Exception as e:
-        st.error(f"시뮬레이션 연산 오류: {e}")
-        return grid
+        history.append(current_grid.copy())
+    return history
 
-# [시각화 로직] 2D 배열 데이터를 3D Surface 그래프로 렌더링
 def plot_3d_surface(grid, title_text):
     fig = go.Figure(data=[go.Surface(z=grid, colorscale='Inferno')])
-    # Z축 범위(25~120도)를 고정하여 여러 모델 간의 직관적인 높이 비교를 가능하게 함
-    fig.update_layout(title=title_text, scene=dict(zaxis=dict(range=[25, 120])), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+    fig.update_layout(title=title_text, scene=dict(zaxis=dict(range=[25, 150])), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
     return fig
 
-# UI 변수 설정 (사용자가 조작할 수 있는 조작 변인)
-st.sidebar.header("⚙️ 시뮬레이션 설정")
-grid_size = st.sidebar.slider("격자 크기", 20, 100, 40)
+st.sidebar.header("⚙️ 애니메이션 설정")
+grid_size = st.sidebar.slider("격자 크기", 20, 60, 40)
 hotspot_temp = st.sidebar.slider("핫스팟 초기 온도", 50, 150, 100)
 alpha = st.sidebar.slider("열전도율 (Alpha)", 0.01, 0.20, 0.10)
-time_steps = st.sidebar.slider("시간 흐름 (Steps)", 1, 500, 200)
+total_steps = st.sidebar.slider("총 시뮬레이션 스텝", 20, 200, 100, step=10)
 
-if st.button("▶️ 3D 시뮬레이션 시작"):
-    with st.spinner('계산 중...'):
-        # 상온(25도)을 기본 베이스 온도로 하는 초기 칩 격자 생성
-        initial_grid = np.ones((grid_size, grid_size)) * 25.0
-        center = grid_size // 2
-        hotspots = [(center, center)] # 칩의 정중앙 좌표 설정
+col_btn1, col_btn2 = st.columns(2)
+start_animation = col_btn1.button("▶️ 열 확산 애니메이션 재생")
+
+if start_animation:
+    history_grids = run_full_simulation(grid_size, alpha, total_steps, hotspot_temp)
+    
+    # 실시간 갱신을 위한 빈 컨테이너 생성
+    plot_placeholder = st.empty()
+    progress_bar = st.progress(0)
+    
+    for i, grid_state in enumerate(history_grids):
+        fig = plot_3d_surface(grid_state, f"Thermal Diffusion - Step {i+1}/{total_steps}")
+        plot_placeholder.plotly_chart(fig, use_container_width=True)
+        progress_bar.progress((i + 1) / total_steps)
+        time.sleep(0.03) # 프레임 속도 조절
         
-        final_grid = calculate_heat_diffuse(initial_grid, alpha, time_steps, hotspots, hotspot_temp)
-        st.plotly_chart(plot_3d_surface(final_grid, "Single Hotspot (3D)"), use_container_width=True)
+    st.success("✨ 열 확산 애니메이션 재생 완료!")
