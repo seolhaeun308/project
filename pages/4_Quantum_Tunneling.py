@@ -16,12 +16,13 @@ def apply_space_theme():
     </style>
     """, unsafe_allow_html=True)
 
-st.set_page_config(page_title="4. 열-양자 다중물리 애니메이션", layout="wide")
+st.set_page_config(page_title="4. 열-양자 다중물리 시뮬레이션", layout="wide")
 apply_space_theme()
 
-st.title("4️⃣ 열-양자 다중물리: 산소 공공 및 터널링 애니메이션")
-st.write("열이 확산됨에 따라 산소 공공(Defect)이 집중되고, 전자의 양자 터널링 확률이 시시각각 변화하는 과정을 애니메이션으로 시각화합니다.")
+st.title("4️⃣ 열-양자 다중물리: 산소 공공 및 터널링 시뮬레이션")
+st.write("열 확산에 따른 산소 공공 밀도 변화와 전자의 양자 터널링 확률(WKB 근사법)을 시뮬레이션합니다.")
 
+# [최적화] 캐싱 적용 물리 연산 함수
 @st.cache_data
 def run_quantum_simulation(size, total_steps, temp, activation_energy, barrier_height):
     grid = np.ones((size, size)) * 25.0
@@ -57,11 +58,36 @@ def plot_3d_surface(grid, title_text, color_theme, z_range):
     fig.update_layout(title=title_text, scene=dict(zaxis=dict(range=z_range)), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', margin=dict(l=0, r=0, b=0, t=40))
     return fig
 
-st.sidebar.header("⚙️ 다중물리 변수 설정")
+# [신규 기능] 원클릭 시나리오 프리셋 정의
+st.sidebar.header("⚡ 원클릭 시나리오 프리셋")
+preset = st.sidebar.selectbox(
+    "연구 목적별 모드 선택",
+    ["사용자 지정 설정", "🧊 초저전력 모바일 AP 모드", "🔥 고성능 HBM(메모리) 적층 모드", "⚛️ 뉴로모픽 멤리스터 최적화 모드"]
+)
+
+# 프리셋에 따른 파라미터 자동 매핑
+if preset == "🧊 초저전력 모바일 AP 모드":
+    default_temp = 70
+    default_ea = 0.7
+    default_barrier = 3.5
+elif preset == "🔥 고성능 HBM(메모리) 적층 모드":
+    default_temp = 160
+    default_ea = 0.3
+    default_barrier = 1.5
+elif preset == "⚛️ 뉴로모픽 멤리스터 최적화 모드":
+    default_temp = 120
+    default_ea = 0.5
+    default_barrier = 2.0
+else:
+    default_temp = 120
+    default_ea = 0.5
+    default_barrier = 2.0
+
+st.sidebar.header("⚙️ 세부 물리 변수 설정")
 grid_size = st.sidebar.slider("격자 크기", 20, 60, 40)
-hotspot_temp = st.sidebar.slider("핫스팟 발열 온도 (°C)", 50, 200, 120)
-activation_energy = st.sidebar.slider("산소 공공 활성화 에너지 (eV)", 0.1, 1.0, 0.5, step=0.1)
-barrier_height = st.sidebar.slider("양자 에너지 장벽 (eV)", 1.0, 5.0, 2.0, step=0.1)
+hotspot_temp = st.sidebar.slider("핫스팟 발열 온도 (°C)", 50, 200, value=default_temp)
+activation_energy = st.sidebar.slider("산소 공공 활성화 에너지 (eV)", 0.1, 1.0, value=default_ea, step=0.1)
+barrier_height = st.sidebar.slider("양자 에너지 장벽 (eV)", 1.0, 5.0, value=default_barrier, step=0.1)
 total_steps = 100
 
 if st.button("🌌 다중물리 애니메이션 재생"):
