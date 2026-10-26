@@ -16,19 +16,25 @@ def apply_space_theme():
     """, unsafe_allow_html=True)
 
 st.set_page_config(page_title="2. 집중 vs 분산 비교", layout="wide")
-apply_space_theme() # 🌌 웅장한 우주 배경 실행!
+apply_space_theme()
 
 st.title("2️⃣ 집중 vs 분산 배치 구조 최적화 (3D)")
 
+# [핵심 로직] 유한차분법(FDM) 열 확산 함수 (재사용 모듈)
 def calculate_heat_diffuse(grid, alpha, time_steps, hotspots, hotspot_temp):
     new_grid = grid.copy()
+    
+    # 시간 스텝(time_steps)에 따른 2차원 열전달 방정식 연산 (FDM)
     for step in range(time_steps):
         new_grid[1:-1, 1:-1] = grid[1:-1, 1:-1] + alpha * (grid[:-2, 1:-1] + grid[2:, 1:-1] + grid[1:-1, :-2] + grid[1:-1, 2:] - 4 * grid[1:-1, 1:-1])
         grid = new_grid.copy()
+        
+        # 디리클레 경계 조건 적용 (핫스팟 리스트에 포함된 모든 좌표의 온도를 지속 유지)
         for (x, y) in hotspots:
             grid[y, x] = hotspot_temp
     return grid
 
+# [시각화 로직] 3D Surface 렌더링 함수 (재사용 모듈)
 def plot_3d_surface(grid, title_text):
     fig = go.Figure(data=[go.Surface(z=grid, colorscale='Inferno')])
     fig.update_layout(title=title_text, scene=dict(zaxis=dict(range=[25, 120])), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
@@ -43,11 +49,15 @@ if st.button("⚖️ 방열 효과 비교하기"):
     offset = grid_size // 4
     init_grid = np.ones((grid_size, grid_size)) * 25.0
     
+    # [함수 재사용] 모델 A: 발열원을 중앙 1곳에 집중 배치 (대조군)
     grid_A = calculate_heat_diffuse(init_grid.copy(), 0.10, time_steps, [(center, center)], hotspot_temp)
+    
+    # [함수 재사용] 모델 B: 동일한 열원을 4곳으로 분산 배치 (실험군)
     grid_B = calculate_heat_diffuse(init_grid.copy(), 0.10, time_steps, 
                                    [(center-offset, center-offset), (center-offset, center+offset), 
                                     (center+offset, center-offset), (center+offset, center+offset)], hotspot_temp)
 
+    # 두 모델의 방열 효율 결과를 좌우로 배치하여 시각적으로 비교 분석
     col1, col2 = st.columns(2)
     with col1:
         st.plotly_chart(plot_3d_surface(grid_A, "Concentrated Hotspot"), use_container_width=True)
