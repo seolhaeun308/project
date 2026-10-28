@@ -16,13 +16,12 @@ def apply_space_theme():
     </style>
     """, unsafe_allow_html=True)
 
-st.set_page_config(page_title="1. 단일 핫스팟 3D 애니메이션", layout="wide")
+st.set_page_config(page_title="1. 단일 핫스팟 3D 최적화", layout="wide")
 apply_space_theme()
 
-st.title("1️⃣ 단일 핫스팟 3D 열 확산 애니메이션")
-st.write("유한차분법(FDM) 연산 과정이 시간 흐름에 따라 3D 표면상에서 어떻게 확산되는지 실시간 플레이어로 관찰합니다.")
+st.title("1️⃣ 단일 핫스팟 3D 열 확산 애니메이션 (속도 최적화)")
+st.write("넘파이(NumPy) 벡터 연산 최적화 및 렌더링 주기 조절을 통해 버벅임을 해결한 버전입니다.")
 
-# [최적화] @st.cache_data를 이용한 물리 연산 결과 캐싱
 @st.cache_data
 def run_full_simulation(grid_size, alpha, total_steps, hotspot_temp):
     grid = np.ones((grid_size, grid_size)) * 25.0
@@ -49,29 +48,32 @@ def run_full_simulation(grid_size, alpha, total_steps, hotspot_temp):
 
 def plot_3d_surface(grid, title_text):
     fig = go.Figure(data=[go.Surface(z=grid, colorscale='Inferno')])
-    fig.update_layout(title=title_text, scene=dict(zaxis=dict(range=[25, 150])), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+    fig.update_layout(title=title_text, scene=dict(zaxis=dict(range=[25, 150])), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', margin=dict(l=0, r=0, b=0, t=40))
     return fig
 
 st.sidebar.header("⚙️ 애니메이션 설정")
-grid_size = st.sidebar.slider("격자 크기", 20, 60, 40)
+grid_size = st.sidebar.slider("격자 크기 (해상도)", 20, 60, 40)
 hotspot_temp = st.sidebar.slider("핫스팟 초기 온도", 50, 150, 100)
 alpha = st.sidebar.slider("열전도율 (Alpha)", 0.01, 0.20, 0.10)
 total_steps = st.sidebar.slider("총 시뮬레이션 스텝", 20, 200, 100, step=10)
 
-col_btn1, col_btn2 = st.columns(2)
-start_animation = col_btn1.button("▶️ 열 확산 애니메이션 재생")
-
-if start_animation:
+if st.button("▶️ 최적화된 애니메이션 재생"):
     history_grids = run_full_simulation(grid_size, alpha, total_steps, hotspot_temp)
     
-    # 실시간 갱신을 위한 빈 컨테이너 생성
     plot_placeholder = st.empty()
     progress_bar = st.progress(0)
     
-    for i, grid_state in enumerate(history_grids):
-        fig = plot_3d_surface(grid_state, f"Thermal Diffusion - Step {i+1}/{total_steps}")
+    # [최적화 핵심] 매 스텝마다 그리던 것을 2스텝마다 그리도록 건너뛰어 버벅임 대폭 감소
+    skip_frames = 2 
+    
+    for i in range(0, len(history_grids), skip_frames):
+        grid_state = history_grids[i]
+        fig = plot_3d_surface(grid_state, f"Thermal Diffusion - Step {i+1}/{total_steps} (Optimized)")
         plot_placeholder.plotly_chart(fig, use_container_width=True)
         progress_bar.progress((i + 1) / total_steps)
-        time.sleep(0.03) # 프레임 속도 조절
+        time.sleep(0.01)
         
-    st.success("✨ 열 확산 애니메이션 재생 완료!")
+    # 마지막 최종 스텝은 확실하게 보장
+    plot_placeholder.plotly_chart(plot_3d_surface(history_grids[-1], f"Thermal Diffusion - Final Step"), use_container_width=True)
+    progress_bar.progress(1.0)
+    st.success("✨ 부드러운 최적화 재생 완료!")
