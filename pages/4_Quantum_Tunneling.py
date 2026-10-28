@@ -16,13 +16,12 @@ def apply_space_theme():
     </style>
     """, unsafe_allow_html=True)
 
-st.set_page_config(page_title="4. 열-양자 다중물리 시뮬레이션", layout="wide")
+st.set_page_config(page_title="4. 열-양자 다중물리 최적화", layout="wide")
 apply_space_theme()
 
-st.title("4️⃣ 열-양자 다중물리: 산소 공공 및 터널링 시뮬레이션")
-st.write("열 확산에 따른 산소 공공 밀도 변화와 전자의 양자 터널링 확률(WKB 근사법)을 시뮬레이션합니다.")
+st.title("4️⃣ 열-양자 다중물리: 산소 공공 및 터널링 애니메이션 (속도 최적화)")
+st.write("2개의 3D 그래프를 동시에 렌더링할 때 발생하는 버벅임을 해결하기 위해 렌더링 프레임을 최적화했습니다.")
 
-# [최적화] 캐싱 적용 물리 연산 함수
 @st.cache_data
 def run_quantum_simulation(size, total_steps, temp, activation_energy, barrier_height):
     grid = np.ones((size, size)) * 25.0
@@ -39,12 +38,10 @@ def run_quantum_simulation(size, total_steps, temp, activation_energy, barrier_h
         current_grid = new_grid.copy()
         current_grid[center, center] = temp
         
-        # 아레니우스 방정식 적용 산소 공공 계산
         temp_kelvin = current_grid + 273.15
         vacancy_density = np.exp(-activation_energy / (k_B * temp_kelvin))
         vacancy_density = (vacancy_density / np.max(vacancy_density)) * 100
         
-        # WKB 근사법 터널링 확률 계산
         max_v = np.max(vacancy_density)
         distance_d = 10.0 / (max_v ** 0.5 + 0.1)
         prob = np.exp(-0.5 * distance_d * np.sqrt(barrier_height)) * 100
@@ -58,39 +55,29 @@ def plot_3d_surface(grid, title_text, color_theme, z_range):
     fig.update_layout(title=title_text, scene=dict(zaxis=dict(range=z_range)), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', margin=dict(l=0, r=0, b=0, t=40))
     return fig
 
-# [신규 기능] 원클릭 시나리오 프리셋 정의
 st.sidebar.header("⚡ 원클릭 시나리오 프리셋")
 preset = st.sidebar.selectbox(
     "연구 목적별 모드 선택",
     ["사용자 지정 설정", "🧊 초저전력 모바일 AP 모드", "🔥 고성능 HBM(메모리) 적층 모드", "⚛️ 뉴로모픽 멤리스터 최적화 모드"]
 )
 
-# 프리셋에 따른 파라미터 자동 매핑
 if preset == "🧊 초저전력 모바일 AP 모드":
-    default_temp = 70
-    default_ea = 0.7
-    default_barrier = 3.5
+    default_temp = 70; default_ea = 0.7; default_barrier = 3.5
 elif preset == "🔥 고성능 HBM(메모리) 적층 모드":
-    default_temp = 160
-    default_ea = 0.3
-    default_barrier = 1.5
+    default_temp = 160; default_ea = 0.3; default_barrier = 1.5
 elif preset == "⚛️ 뉴로모픽 멤리스터 최적화 모드":
-    default_temp = 120
-    default_ea = 0.5
-    default_barrier = 2.0
+    default_temp = 120; default_ea = 0.5; default_barrier = 2.0
 else:
-    default_temp = 120
-    default_ea = 0.5
-    default_barrier = 2.0
+    default_temp = 120; default_ea = 0.5; default_barrier = 2.0
 
 st.sidebar.header("⚙️ 세부 물리 변수 설정")
-grid_size = st.sidebar.slider("격자 크기", 20, 60, 40)
+grid_size = st.sidebar.slider("격자 크기 (해상도)", 20, 50, 35) # 해상도를 낮추면 연산이 훨씬 빨라집니다!
 hotspot_temp = st.sidebar.slider("핫스팟 발열 온도 (°C)", 50, 200, value=default_temp)
 activation_energy = st.sidebar.slider("산소 공공 활성화 에너지 (eV)", 0.1, 1.0, value=default_ea, step=0.1)
 barrier_height = st.sidebar.slider("양자 에너지 장벽 (eV)", 1.0, 5.0, value=default_barrier, step=0.1)
-total_steps = 100
+total_steps = 80
 
-if st.button("🌌 다중물리 애니메이션 재생"):
+if st.button("🌌 다중물리 최적화 애니메이션 재생"):
     history = run_quantum_simulation(grid_size, total_steps, hotspot_temp, activation_energy, barrier_height)
     
     col1, col2 = st.columns(2)
@@ -99,7 +86,11 @@ if st.button("🌌 다중물리 애니메이션 재생"):
     metric_placeholder = st.empty()
     progress_bar = st.progress(0)
     
-    for i, (t_grid, v_grid, prob) in enumerate(history):
+    # [최적화 핵심] 2개 그래프 동시 렌더링 시 부하를 줄이기 위해 2스텝마다 갱신
+    skip_frames = 2
+    
+    for i in range(0, len(history), skip_frames):
+        t_grid, v_grid, prob = history[i]
         fig1 = plot_3d_surface(t_grid, f"Temperature Map (Step {i+1})", 'Inferno', [25, 200])
         fig2 = plot_3d_surface(v_grid, f"Oxygen Vacancy Density (Step {i+1})", 'Viridis', [0, 100])
         
@@ -108,6 +99,13 @@ if st.button("🌌 다중물리 애니메이션 재생"):
         metric_placeholder.metric(label="현재 전자의 양자 터널링 확률 (WKB 모델)", value=f"{prob:.6f} %")
         
         progress_bar.progress((i + 1) / total_steps)
-        time.sleep(0.03)
+        time.sleep(0.01)
         
-    st.success("⚛️ 다중물리 시뮬레이션 애니메이션 재생 완료!")
+    # 마지막 최종 스텝 보장
+    t_grid, v_grid, prob = history[-1]
+    p1.plotly_chart(plot_3d_surface(t_grid, f"Temperature Map (Final)", 'Inferno', [25, 200]), use_container_width=True)
+    p2.plotly_chart(plot_3d_surface(v_grid, f"Oxygen Vacancy Density (Final)", 'Viridis', [0, 100]), use_container_width=True)
+    metric_placeholder.metric(label="최종 전자의 양자 터널링 확률 (WKB 모델)", value=f"{prob:.6f} %")
+    progress_bar.progress(1.0)
+    
+    st.success("⚛️ 다중물리 최적화 애니메이션 재생 완료!")
