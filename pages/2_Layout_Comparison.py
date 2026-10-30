@@ -57,20 +57,12 @@ if st.button("⚖️ 방열 효과 비교하기"):
                                    [(center-offset, center-offset), (center-offset, center+offset), 
                                     (center+offset, center-offset), (center+offset, center+offset)], hotspot_temp)
 
-    # 두 모델의 방열 효율 결과를 좌우로 배치하여 시각적으로 비교 분석
+    # 💡 [수정 완료] 중복된 렌더링 부분을 하나로 통합하고 지표(metric)를 추가했습니다.
     col1, col2 = st.columns(2)
     with col1:
         st.plotly_chart(plot_3d_surface(grid_A, "Concentrated Hotspot"), use_container_width=True)
+        st.metric(label="모델 A 최고 온도 (집중)", value=f"{np.max(grid_A):.1f} °C") 
     with col2:
         st.plotly_chart(plot_3d_surface(grid_B, "Distributed Hotspots"), use_container_width=True)
-# 두 모델의 방열 효율 결과를 좌우로 배치하여 시각적으로 비교 분석
-    col1, col2 = st.columns(2)
-    with col1:
-        st.plotly_chart(plot_3d_surface(grid_A, "Concentrated Hotspot"), use_container_width=True)
-        # 💡 추가: 수치 데이터 비교 (최고 온도 표시)
-        st.metric(label="모델 A 최고 온도", value=f"{np.max(grid_A):.1f} °C") 
-    with col2:
-        st.plotly_chart(plot_3d_surface(grid_B, "Distributed Hotspots"), use_container_width=True)
-        # 💡 추가: 수치 데이터 비교 (모델 A 대비 얼마나 온도가 낮아졌는지 시각화)
         temp_diff = np.max(grid_B) - np.max(grid_A)
-        st.metric(label="모델 B 최고 온도", value=f"{np.max(grid_B):.1f} °C", delta=f"{temp_diff:.1f} °C (방열 효과)")
+        st.metric(label="모델 B 최고 온도 (분산)", value=f"{np.max(grid_B):.1f} °C", delta=f"{temp_diff:.1f} °C (방열 효과)")
