@@ -22,9 +22,10 @@ apply_space_theme()
 st.title("1️⃣ 단일 핫스팟 3D 열 확산 애니메이션 (속도 최적화)")
 st.write("넘파이(NumPy) 벡터 연산 최적화 및 렌더링 주기 조절을 통해 버벅임을 해결한 버전입니다.")
 
+# 💡 [수정 완료] 주석이 포함된 단 하나의 물리 연산 함수입니다.
 @st.cache_data
 def run_full_simulation(grid_size, alpha, total_steps, hotspot_temp):
-    grid = np.ones((grid_size, grid_size)) * 25.0
+    grid = np.ones((grid_size, grid_size)) * 25.0 # 초기 상온(25도) 설정
     center = grid_size // 2
     hotspots = [(center, center)]
     
@@ -33,13 +34,17 @@ def run_full_simulation(grid_size, alpha, total_steps, hotspot_temp):
     
     for step in range(total_steps):
         new_grid = current_grid.copy()
+        
+        # 행렬 슬라이싱을 이용한 주변 노드(상, 하, 좌, 우) 온도 추출
         up = current_grid[:-2, 1:-1]; down = current_grid[2:, 1:-1]
         left = current_grid[1:-1, :-2]; right = current_grid[1:-1, 2:]
         center_region = current_grid[1:-1, 1:-1]
         
+        # 유한차분법(FDM) 수식을 적용하여 현재 노드의 다음 스텝 온도 계산
         new_grid[1:-1, 1:-1] = center_region + alpha * (up + down + left + right - 4 * center_region)
         current_grid = new_grid.copy()
         
+        # 디리클레 경계 조건: 트랜지스터 핫스팟의 발열 온도를 지속 유지
         for (x, y) in hotspots:
             current_grid[y, x] = hotspot_temp
             
@@ -77,30 +82,3 @@ if st.button("▶️ 최적화된 애니메이션 재생"):
     plot_placeholder.plotly_chart(plot_3d_surface(history_grids[-1], f"Thermal Diffusion - Final Step"), use_container_width=True)
     progress_bar.progress(1.0)
     st.success("✨ 부드러운 최적화 재생 완료!")
-    @st.cache_data
-def run_full_simulation(grid_size, alpha, total_steps, hotspot_temp):
-    grid = np.ones((grid_size, grid_size)) * 25.0 # 초기 상온(25도) 설정
-    center = grid_size // 2
-    hotspots = [(center, center)]
-    
-    history = []
-    current_grid = grid.copy()
-    
-    for step in range(total_steps):
-        new_grid = current_grid.copy()
-        
-        # 행렬 슬라이싱을 이용한 주변 노드(상, 하, 좌, 우) 온도 추출
-        up = current_grid[:-2, 1:-1]; down = current_grid[2:, 1:-1]
-        left = current_grid[1:-1, :-2]; right = current_grid[1:-1, 2:]
-        center_region = current_grid[1:-1, 1:-1]
-        
-        # 유한차분법(FDM) 수식을 적용하여 현재 노드의 다음 스텝 온도 계산
-        new_grid[1:-1, 1:-1] = center_region + alpha * (up + down + left + right - 4 * center_region)
-        current_grid = new_grid.copy()
-        
-        # 디리클레 경계 조건: 트랜지스터 핫스팟의 발열 온도를 지속 유지
-        for (x, y) in hotspots:
-            current_grid[y, x] = hotspot_temp
-            
-        history.append(current_grid.copy())
-    return history
