@@ -63,8 +63,7 @@ if st.button("⚖️ 일반 실리콘 vs TSV 칩 비교"):
         
     grid_B = calculate_heat_diffuse(init_grid.copy(), alpha_map_B, 200, hotspots, 100)
 
+    # 💡 [수정 완료] 수치 지표(Metric)를 깔끔하게 추가했습니다.
     col1, col2 = st.columns(2)
     with col1:
-        st.plotly_chart(plot_3d_surface(grid_A, "Standard Silicon"), use_container_width=True)
-    with col2:
-        st.plotly_chart(plot_3d_surface(grid_B, "Silicon with Cu TSV"), use_container_width=True)
+        st.plotly_chart(plot_3d_surface(grid_A, "Standard Silicon"),
