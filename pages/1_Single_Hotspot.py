@@ -22,7 +22,7 @@ apply_space_theme()
 st.title("1️⃣ 단일 핫스팟 3D 열 확산 애니메이션 (속도 최적화)")
 st.write("넘파이(NumPy) 벡터 연산 최적화 및 렌더링 주기 조절을 통해 버벅임을 해결한 버전입니다.")
 
-# 💡 [수정 완료] 주석이 포함된 단 하나의 물리 연산 함수입니다.
+# 💡 [핵심 로직] 물리 엔진
 @st.cache_data
 def run_full_simulation(grid_size, alpha, total_steps, hotspot_temp):
     grid = np.ones((grid_size, grid_size)) * 25.0 # 초기 상온(25도) 설정
@@ -66,6 +66,7 @@ if st.button("▶️ 최적화된 애니메이션 재생"):
     history_grids = run_full_simulation(grid_size, alpha, total_steps, hotspot_temp)
     
     plot_placeholder = st.empty()
+    metric_placeholder = st.empty() # 💡 수치가 표시될 빈 공간 추가
     progress_bar = st.progress(0)
     
     # [최적화 핵심] 매 스텝마다 그리던 것을 2스텝마다 그리도록 건너뛰어 버벅임 대폭 감소
@@ -75,10 +76,17 @@ if st.button("▶️ 최적화된 애니메이션 재생"):
         grid_state = history_grids[i]
         fig = plot_3d_surface(grid_state, f"Thermal Diffusion - Step {i+1}/{total_steps} (Optimized)")
         plot_placeholder.plotly_chart(fig, use_container_width=True)
+        
+        # 💡 애니메이션이 진행될 때마다 실시간으로 수치 업데이트
+        metric_placeholder.metric(label="현재 칩 최고 온도", value=f"{np.max(grid_state):.1f} °C")
+        
         progress_bar.progress((i + 1) / total_steps)
         time.sleep(0.01)
         
     # 마지막 최종 스텝은 확실하게 보장
-    plot_placeholder.plotly_chart(plot_3d_surface(history_grids[-1], f"Thermal Diffusion - Final Step"), use_container_width=True)
+    final_grid = history_grids[-1]
+    plot_placeholder.plotly_chart(plot_3d_surface(final_grid, f"Thermal Diffusion - Final Step"), use_container_width=True)
+    metric_placeholder.metric(label="최종 칩 최고 온도", value=f"{np.max(final_grid):.1f} °C")
     progress_bar.progress(1.0)
+    
     st.success("✨ 부드러운 최적화 재생 완료!")
